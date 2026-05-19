@@ -33,7 +33,12 @@ io.on('connection', (socket) => {
         const { emailId, offer, to } = data || {};
         const socketId = to || emailTosocketMapping.get(emailId);
         if (socketId) {
-            io.to(socketId).emit('incoming-call', { from: socket.id, offer });
+            // include caller email if provided so receiver can label immediately
+            const callerEmail = emailId || (() => {
+                for (const [e, id] of emailTosocketMapping.entries()) { if (id === socket.id) return e; }
+                return null;
+            })();
+            io.to(socketId).emit('incoming-call', { from: socket.id, offer, emailId: callerEmail });
         } else {
             console.log('call-user: no socket found for', emailId);
         }
@@ -54,9 +59,23 @@ io.on('connection', (socket) => {
         }
     });
 
+    // relay hand raise events to the room
+    socket.on('hand-raised', (data) => {
+        const { raised } = data || {};
+        const roomId = socketToRoom.get(socket.id);
+        if (roomId) {
+            socket.broadcast.to(roomId).emit('participant-hand', { socketId: socket.id, raised });
+        }
+    });
+
     socket.on('answer-call', (data) => {
         const { to, answer } = data || {};
-        io.to(to).emit('call-answered', { from: socket.id, answer });
+        // include answerer's email for labeling
+        let answererEmail = null;
+        for (const [e, id] of emailTosocketMapping.entries()) {
+            if (id === socket.id) { answererEmail = e; break; }
+        }
+        io.to(to).emit('call-answered', { from: socket.id, answer, emailId: answererEmail });
     });
 
 
