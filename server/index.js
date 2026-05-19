@@ -1,18 +1,20 @@
+
 const express = require('express');
 const bodyParser = require('body-parser');
-const {Server} = require('socket.io');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
-
 app.use(bodyParser.json());
 
 const emailTosocketMapping = new Map();
 const socketToRoom = new Map();
 
-const io = new Server({
+const server = http.createServer(app);
+const io = new Server(server, {
     cors: {
         origin: '*',
-        methods: ['GET','POST']
+        methods: ['GET', 'POST']
     }
 });
 
@@ -98,5 +100,5 @@ io.on('connection', (socket) => {
     });
 });
 
-app.listen(8000, () => console.log('HTTP server is running on port 8000'));
-io.listen(8001);
+const PORT = process.env.PORT || 8000;
+server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
