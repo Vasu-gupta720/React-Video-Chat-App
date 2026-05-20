@@ -381,17 +381,21 @@ const RoomPage = () => {
                                                         if (el) {
                                                             try {
                                                                 if (videoOff) {
-                                                                    try { el.pause(); } catch (pauseErr) {}
-                                                                    el.srcObject = null;
+                                                                    if (!el.paused) { try { el.pause(); } catch (pauseErr) {} }
+                                                                    if (el.srcObject !== null) el.srcObject = null;
                                                                     remoteRefs.current[socketId] = el;
                                                                     return;
                                                                 }
-                                                                el.srcObject = stream;
-                                                                el.autoplay = true;
-                                                                el.playsInline = true;
-                                                                el.muted = tileState.muted;
-                                                                const p = el.play();
-                                                                if (p && p.catch) p.catch(err => console.warn('Remote video play() blocked:', err));
+                                                                if (el.srcObject !== stream) {
+                                                                    el.srcObject = stream;
+                                                                    el.autoplay = true;
+                                                                    el.playsInline = true;
+                                                                    el.muted = tileState.muted;
+                                                                    const p = el.play();
+                                                                    if (p && p.catch) p.catch(err => console.warn('Remote video play() blocked:', err));
+                                                                } else {
+                                                                    el.muted = tileState.muted;
+                                                                }
                                                                 remoteRefs.current[socketId] = el;
                                                             } catch (err) {
                                                                 console.warn('Failed to attach remote stream', err);
