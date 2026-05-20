@@ -9,6 +9,7 @@ export const PeerProvider = (props) => {
     const peersRef = useRef(new Map()); // socketId -> RTCPeerConnection
     const [remoteStreams, setRemoteStreams] = useState({}); // socketId -> MediaStream
     const onIceCandidateRef = useRef(null);
+    const iceCandidatesQueueRef = useRef(new Map()); // socketId -> RTCIceCandidate[]
 
     const createPeerConnection = useCallback((socketId) => {
         try {
@@ -50,6 +51,16 @@ export const PeerProvider = (props) => {
         onIceCandidateRef.current = cb;
     }, []);
 
+    const flushIceCandidates = async (socketId, pc) => {
+        const queue = iceCandidatesQueueRef.current.get(socketId);
+        if (queue && queue.length > 0) {
+            for (const candidate of queue) {
+                try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) { console.error('flush addIceCandidate', e); }
+            }
+            iceCandidatesQueueRef.current.delete(socketId);
+        }
+    };
+
     const setLocalStream = useCallback((stream) => {
         localStreamRef.current = stream;
         // add tracks to all existing peers
@@ -72,6 +83,7 @@ export const PeerProvider = (props) => {
         await pc.setRemoteDescription(offer);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        flushIceCandidates(fromSocketId, pc);
         return answer;
     }, [createPeerConnection]);
 
@@ -79,11 +91,17 @@ export const PeerProvider = (props) => {
         const pc = peersRef.current.get(socketId);
         if (!pc) throw new Error('PeerConnection not found for ' + socketId);
         await pc.setRemoteDescription(desc);
+        flushIceCandidates(socketId, pc);
     }, []);
 
     const addIceCandidate = useCallback(async (socketId, candidate) => {
         const pc = peersRef.current.get(socketId);
-        if (!pc) return;
+        if (!pc || !pc.remoteDescription) {
+            const queue = iceCandidatesQueueRef.current.get(socketId) || [];
+            queue.push(candidate);
+            iceCandidatesQueueRef.current.set(socketId, queue);
+            return;
+        }
         try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) { console.error('addIceCandidate', e); }
     }, []);
 
