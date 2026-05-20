@@ -10,7 +10,7 @@ export const useSocket = () => {
 
 export const SocketProvider = (props) => {
     const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
-    const socket = React.useMemo(() => io(backendUrl), []);
+    const socket = React.useMemo(() => io(backendUrl), [backendUrl]);
     return (
         <socketContext.Provider value={socket}>
             {props.children}
